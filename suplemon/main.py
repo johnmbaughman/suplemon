@@ -18,7 +18,7 @@ from .logger import logger
 from .config import Config
 from .editor import Editor
 
-__version__ = "0.1.59"
+__version__ = "0.1.64"
 
 
 class App:
@@ -30,9 +30,9 @@ class App:
         :param str filenames[*]: Path to a file to load
         """
         self.version = __version__
-        self.inited = 0
-        self.running = 0
-        self.debug = 1
+        self.inited = False
+        self.running = False
+        self.debug = True
         self.block_rendering = False
 
         # Set default variables
@@ -43,6 +43,11 @@ class App:
         self.last_input = None
         self.global_buffer = []
         self.event_bindings = {}
+
+        self.config = None
+        self.ui = None
+        self.modules = None
+        self.themes = None
 
         # Maximum amount of inputs to process at once
         self.max_input = 100
@@ -110,14 +115,14 @@ class App:
         self.themes = themes.ThemeLoader(self)
 
         # Indicate that initialization is complete
-        self.inited = 1
+        self.inited = True
 
         return True
 
     def exit(self):
         """Stop the main loop and exit."""
         self.trigger_event_before("app_exit")
-        self.running = 0
+        self.running = False
 
     def run(self):
         """Run the app via the ui wrapper."""
@@ -157,7 +162,7 @@ class App:
                                 "Python 3.3 or higher."
                                 .format(version=ver))
         self.load_files()
-        self.running = 1
+        self.running = True
         self.trigger_event_after("app_loaded")
 
     def on_input(self, event):
@@ -175,14 +180,12 @@ class App:
             got_input = False
 
             # Run through max 100 inputs (so the view is updated at least every 100 characters)
-            i = 0
-            while i < self.max_input:
+            for i in range(self.max_input):
                 event = self.ui.get_input(False)  # non-blocking
 
                 if not event:
                     break  # no more inputs to process at this time
 
-                i += 1
                 got_input = True
                 self.on_input(event)
 
@@ -279,6 +282,7 @@ class App:
         self.config.reload()
         for f in self.files:
             self.setup_editor(f.editor)
+        self.trigger_event_after("config_loaded")
         self.ui.resize()
         self.ui.refresh()
 
@@ -421,33 +425,34 @@ class App:
                 try:
                     input_str = int(lineno)
                     self.get_editor().go_to_pos(input_str)
-                except:
+                except ValueError:
                     pass
         else:
             try:
                 line_no = int(input_str)
                 self.get_editor().go_to_pos(line_no)
-            except:
+            except ValueError:
                 file_index = self.find_file(input_str)
                 if file_index != -1:
                     self.switch_to_file(file_index)
 
     def find_file(self, s):
         """Return index of file matching string."""
+        # REFACTOR: Move to a helper function or implement in a module
+
         # Case insensitive matching
         s = s.lower()
-        i = 0
+
         # First match files beginning with s
-        for file in self.files:
+        for i, file in enumerate(self.files):
             if file.name.lower().startswith(s):
                 return i
-            i += 1
-        i = 0
-        # Then match files that contain s
-        for file in self.files:
+
+        # Then match any files that contain s
+        for i, file in enumerate(self.files):
             if s in file.name.lower():
                 return i
-            i += 1
+
         return -1
 
     def run_command(self, data):
@@ -474,6 +479,7 @@ class App:
             self.modules.modules[module_name].run(self, self.get_editor(), args)
             return True
         except:
+            # Catch any error when running a module just incase
             self.set_status("Running command failed!")
             self.logger.exception("Running command failed!")
             return False
@@ -511,6 +517,7 @@ class App:
                 try:
                     val = cb(event)
                 except:
+                    # Catch all errors in callbacks just incase
                     self.logger.error("Failed running callback: {0}".format(cb), exc_info=True)
                     continue
                 if val:
@@ -526,14 +533,10 @@ class App:
     def toggle_fullscreen(self):
         """Toggle full screen editor."""
         display = self.config["display"]
-        if display["show_top_bar"]:
-            display["show_top_bar"] = 0
-            display["show_bottom_bar"] = 0
-            display["show_legend"] = 0
-        else:
-            display["show_top_bar"] = 1
-            display["show_bottom_bar"] = 1
-            display["show_legend"] = 1
+        show_indicators = not display["show_top_bar"]
+        display["show_top_bar"] = show_indicators
+        display["show_bottom_bar"] = show_indicators
+        display["show_legend"] = show_indicators
         # Virtual curses windows need to be resized
         self.ui.resize()
 
@@ -549,7 +552,17 @@ class App:
 
     def query_command(self):
         """Run editor commands."""
-        data = self.ui.query("Command:")
+        if sys.version_info[0] < 3:
+            modules = self.modules.modules.iteritems()
+        else:
+            modules = self.modules.modules.items()
+
+        # Get built in operations
+        completions = [oper for oper in self.operations.keys()]
+        # Add runnable modules
+        completions += [name for name, m in modules if m.is_runnable()]
+
+        data = self.ui.query_autocmp("Command:", completions=sorted(completions))
         if not data:
             return False
         self.run_command(data)

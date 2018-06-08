@@ -7,7 +7,6 @@ import os
 import json
 import logging
 
-from . import helpers
 from . import suplemon_module
 
 
@@ -48,7 +47,7 @@ class Config:
             self.logger.debug("Configuration file '{0}' doesn't exist.".format(path))
         else:
             config = self.load_config_file(path)
-        if config:
+        if config is not False:
             self.logger.debug("Loaded configuration file '{0}'".format(path))
             self.config = self.merge_defaults(config)
         else:
@@ -161,7 +160,7 @@ class Config:
         cleaned = []
         for line in lines:
             line = line.strip()
-            if helpers.starts(line, "//") or helpers.starts(line, "#"):
+            if line.startswith(("//", "#")):
                 continue
             cleaned.append(line)
         return "\n".join(cleaned)

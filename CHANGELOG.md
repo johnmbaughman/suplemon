@@ -1,6 +1,70 @@
 Change Log
 ==========
 
+## [v0.1.64](https://github.com/richrd/suplemon/tree/v0.1.64) (2017-12-17) compared to previous master branch.
+[Full Changelog](https://github.com/richrd/suplemon/compare/v0.1.63...v0.1.64)
+
+**Implemented enhancements:**
+
+- Add bulk_delete and sort_lines commands.
+- Lots of code style fixes and improvements. Credit @Gnewbee
+- Add xclip support for system clipboard. Credit @LChris314
+- Added command docs to readme and help.
+
+
+## [v0.1.63](https://github.com/richrd/suplemon/tree/v0.1.63) (2017-10-05) compared to previous master branch.
+[Full Changelog](https://github.com/richrd/suplemon/compare/v0.1.62...v0.1.63)
+
+**Implemented enhancements:**
+
+- Add autocomplete to run command prompt (fixes #171)
+- Increase battery status polling time to 60 sec (previously 10 sec)
+- Change the top bar suplemon icon to a fancy unicode lemon.
+- Add paste mode for better pasting over SSH (disables auto indentation)
+
+**Fixed bugs:**
+
+- Keep top bar statuses of modules in alphabetical order based on module name. (fixes #57)
+- Prevent restoring file state if file has changed since last time (fixes #198)
+
+
+## [v0.1.62](https://github.com/richrd/suplemon/tree/v0.1.62) (2017-09-25) compared to previous master branch.
+[Full Changelog](https://github.com/richrd/suplemon/compare/v0.1.61...v0.1.62)
+
+**Fixed bugs:**
+
+- Fixed and re-enabled fancy unicode symbols.
+- Fixed typos in default configuration. Credit @1fabunicorn (#192)
+- Fixed error message when loading valid but empty config file (Fixes #196).
+
+**Implemented enhancements:**
+
+- Add ctrl+t shortcut for trimming whitespace
+
+
+## [v0.1.61](https://github.com/richrd/suplemon/tree/v0.1.61) (2017-05-29) compared to previous master branch.
+[Full Changelog](https://github.com/richrd/suplemon/compare/v0.1.60...v0.1.61)
+
+**Fixed bugs:**
+
+- Disable fancy unicode symbols by default. Caused problems on some terminals.
+
+
+## [v0.1.60](https://github.com/richrd/suplemon/tree/v0.1.60) (2017-03-23) compared to previous master branch.
+[Full Changelog](https://github.com/richrd/suplemon/compare/v0.1.59...v0.1.60)
+
+**Implemented enhancements:**
+
+- Add support for the MacOS native pasteboard via pbcopy/pbpaste. Credit @abl
+- Added shift+tab for going backwards when autocompleting files.
+- Added F keys with modifiers and fixed some ctrl+shift keybindings.
+
+**Fixed bugs:**
+
+- Broader error handling in hostname module.
+- Don't print log message when opening file that doesn't exist.
+
+
 ## [v0.1.59](https://github.com/richrd/suplemon/tree/v0.1.59) (2017-02-16) compared to previous master branch.
 [Full Changelog](https://github.com/richrd/suplemon/compare/v0.1.58...v0.1.59)
 

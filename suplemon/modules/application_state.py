@@ -1,9 +1,18 @@
 # -*- encoding: utf-8
 
+
+import hashlib
+
 from suplemon.suplemon_module import Module
 
 
 class ApplicationState(Module):
+    """
+    Stores the state of open files when exiting the editor and restores when files are reopened.
+
+    Cursor positions and scroll position are stored and restored.
+    """
+
     def init(self):
         self.init_logging(__name__)
         self.bind_event_after("app_loaded", self.on_load)
@@ -28,15 +37,23 @@ class ApplicationState(Module):
         """Get the state of a single file."""
         editor = file.get_editor()
         state = {
-            "cursors": [cursor.tuple() for cursor in editor.get_cursors()],
-            "scroll_pos": editor.get_scroll_pos(),
+            "cursors": [cursor.tuple() for cursor in editor.cursors],
+            "scroll_pos": editor.scroll_pos,
+            "hash": self.get_hash(editor),
         }
         return state
+
+    def get_hash(self, editor):
+        # We don't need cryptographic security so we just use md5
+        h = hashlib.md5()
+        for line in editor.lines:
+            h.update(line.get_data().encode("utf-8"))
+        return h.hexdigest()
 
     def set_file_state(self, file, state):
         """Set the state of a file."""
         file.editor.set_cursors(state["cursors"])
-        file.editor.set_scroll_pos(state["scroll_pos"])
+        file.editor.scroll_pos = state["scroll_pos"]
 
     def store_states(self):
         """Store the states of opened files."""
@@ -50,7 +67,11 @@ class ApplicationState(Module):
         for file in self.app.get_files():
             path = file.get_path()
             if path in self.storage.get_data().keys():
-                self.set_file_state(file, self.storage[path])
+                state = self.storage[path]
+                if "hash" not in state:
+                    self.set_file_state(file, state)
+                elif state["hash"] == self.get_hash(file.get_editor()):
+                    self.set_file_state(file, state)
 
 
 module = {

@@ -6,8 +6,9 @@ Curses user interface.
 import os
 import sys
 import logging
+from wcwidth import wcswidth
 
-from .prompt import Prompt, PromptBool, PromptFile
+from .prompt import Prompt, PromptBool, PromptFiltered, PromptFile, PromptAutocmp
 from .key_mappings import key_map
 
 # Curses can't be imported yet but we'll
@@ -107,6 +108,13 @@ class UI:
         self.logger = logging.getLogger(__name__)
         self.warned_old_curses = 0
         self.limited_colors = True
+        self.screen = None
+        self.current_yx = None
+        self.text_input = None
+        self.header_win = None
+        self.status_win = None
+        self.editor_win = None
+        self.legend_win = None
 
     def init(self):
         """Set ESC delay and then import curses."""
@@ -310,12 +318,13 @@ class UI:
         if display["show_app_name"]:
             name_str = "Suplemon Editor v{0} -".format(self.app.version)
             if self.app.config["app"]["use_unicode_symbols"]:
-                logo = "\u2688"      # Simple lemon (filled)
+                logo = "\U0001f34b"  # Fancy lemon
                 name_str = " {0} {1}".format(logo, name_str)
             head_parts.append(name_str)
 
-        # Add module statuses to the status bar
-        for name in self.app.modules.modules.keys():
+        # Add module statuses to the status bar in descending order
+        module_keys = sorted(self.app.modules.modules.keys())
+        for name in module_keys:
             module = self.app.modules.modules[name]
             if module.options["status"] == "top":
                 status = module.get_status()
@@ -326,13 +335,17 @@ class UI:
             head_parts.append(self.file_list_str())
 
         head = " ".join(head_parts)
-        head = head + (" " * (self.screen.getmaxyx()[1]-len(head)-1))
-        if len(head) >= size[0]:
-            head = head[:size[0]-1]
-        if self.app.config["display"]["invert_status_bars"]:
-            self.header_win.addstr(0, 0, head, curses.color_pair(0) | curses.A_REVERSE)
-        else:
-            self.header_win.addstr(0, 0, head, curses.color_pair(0))
+        head = head + (" " * (size[0]-wcswidth(head)-1))
+        head_width = wcswidth(head)
+        if head_width > size[0]:
+            head = head[:size[0]-head_width]
+        try:
+            if self.app.config["display"]["invert_status_bars"]:
+                self.header_win.addstr(0, 0, head, curses.color_pair(0) | curses.A_REVERSE)
+            else:
+                self.header_win.addstr(0, 0, head, curses.color_pair(0))
+        except curses.error:
+            pass
         self.header_win.refresh()
 
     def file_list_str(self):
@@ -462,7 +475,7 @@ class UI:
             x += len(label)+2
         self.legend_win.refresh()
 
-    def _query(self, text, initial="", cls=Prompt):
+    def _query(self, text, initial="", cls=Prompt, inst=None):
         """Ask for text input via the status bar."""
 
         # Disable render blocking
@@ -470,7 +483,10 @@ class UI:
         self.app.block_rendering = 0
 
         # Create our text input
-        self.text_input = cls(self.app, self.status_win)
+        if not inst:
+            self.text_input = cls(self.app, self.status_win)
+        else:
+            self.text_input = inst
         self.text_input.set_config(self.app.config["editor"].copy())
         self.text_input.set_input_source(self.get_input)
         self.text_input.init()
@@ -493,9 +509,21 @@ class UI:
         result = self._query(text, default, PromptBool)
         return result
 
+    def query_filtered(self, text, initial="", handler=None):
+        """Get an arbitrary string from the user with input filtering."""
+        prompt_inst = PromptFiltered(self.app, self.status_win, handler=handler)
+        result = self._query(text, initial, inst=prompt_inst)
+        return result
+
     def query_file(self, text, initial=""):
         """Get a file path from the user."""
         result = self._query(text, initial, PromptFile)
+        return result
+
+    def query_autocmp(self, text, initial="", completions=[]):
+        """Get an arbitrary string from the user with autocomplete."""
+        prompt_inst = PromptAutocmp(self.app, self.status_win, initial_items=completions)
+        result = self._query(text, initial, inst=prompt_inst)
         return result
 
     def get_input(self, blocking=True):
